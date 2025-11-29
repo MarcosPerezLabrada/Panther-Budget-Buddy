@@ -1,6 +1,6 @@
-const fs = require('fs');
+import fs from 'fs';
 
-console.log('Panther Budget Buddy - Setup\n');
+console.log('🐾 Panther Budget Buddy - Setup\n');
 
 // Check if .env.local exists
 if (fs.existsSync('.env.local')) {
