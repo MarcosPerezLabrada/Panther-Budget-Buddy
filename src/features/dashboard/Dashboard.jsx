@@ -9,6 +9,11 @@ import {
   calculateDailyAverage,
   calculateCategorySpending,
   getTopCategory,
+  calculateSavingsProgress,
+  calculateSpendingLimitProgress,
+  calculateWeeklySpending,
+  calculateMonthlySpending,
+  calculateProjectedMonthlySpending,
 } from "@/utils/calculations";
 import { StatsCards } from "./components/StatsCards";
 import { TransactionForm } from "./components/TransactionForm";
@@ -34,6 +39,8 @@ function Dashboard({ user }) {
     setError(null);
     try {
       await Promise.all([fetchTransactions(), fetchGoals(), fetchCategories()]);
+      // Update goal progress after loading all data
+      await updateGoalProgress();
     } catch (err) {
       setError("Failed to load data. Please try again.");
       console.error("Error fetching data:", err);
@@ -171,6 +178,7 @@ function Dashboard({ user }) {
 
       if (err) throw err;
       await fetchTransactions();
+      await updateGoalProgress();
       return true;
     } catch (err) {
       const errorMsg = `Error adding transaction: ${err.message}`;
@@ -246,6 +254,7 @@ function Dashboard({ user }) {
         period: null,
         target_amount: parseFloat(goalForm.amount),
         current_amount: 0,
+        category_id: goalForm.type === "spending" ? goalForm.category : null,
       });
 
       if (err) throw err;
@@ -268,6 +277,7 @@ function Dashboard({ user }) {
           name: editGoal.name,
           target_amount: parseFloat(editGoal.amount),
           goal_type: editGoal.type,
+          category_id: editGoal.type === "spending" ? editGoal.category : null,
         })
         .eq("id", goalId);
 
@@ -298,6 +308,56 @@ function Dashboard({ user }) {
       setError(errorMsg);
       console.error(errorMsg);
       return false;
+    }
+  };
+
+  // Update goal progress based on transactions
+  const updateGoalProgress = async () => {
+    try {
+      // Fetch fresh data from database
+      const { data: freshGoals, error: goalsError } = await supabase
+        .from("goals")
+        .select("*");
+
+      const { data: freshTransactions, error: transError } = await supabase
+        .from("transactions")
+        .select("*");
+
+      if (goalsError || transError) {
+        console.error('Error fetching data for goal progress:', goalsError || transError);
+        return;
+      }
+
+      for (const goal of freshGoals || []) {
+        let currentAmount = 0;
+
+        // Check goal type - handle both 'saving'/'saving goal' variations
+        const goalType = goal.goal_type?.toLowerCase() || '';
+
+        if (goalType.includes('saving')) {
+          // For savings goals, track balance (income - expenses)
+          currentAmount = calculateSavingsProgress(freshTransactions || []);
+        } else if (goalType.includes('spending')) {
+          // For spending limit goals, track category spending
+          if (goal.category_id) {
+            currentAmount = calculateSpendingLimitProgress(freshTransactions || [], goal.category_id);
+          }
+        }
+
+        // Only update if the amount has changed
+        if (currentAmount !== goal.current_amount) {
+          const { error: err } = await supabase
+            .from('goals')
+            .update({ current_amount: currentAmount })
+            .eq('id', goal.id);
+
+          if (err) console.error(`Error updating goal ${goal.id}:`, err);
+        }
+      }
+      // Refresh goals after updating to show latest values
+      await fetchGoals();
+    } catch (err) {
+      console.error('Error updating goal progress:', err);
     }
   };
 
@@ -368,6 +428,7 @@ function Dashboard({ user }) {
           {/* Right Panel - Goals */}
           <GoalManager
             goals={goals}
+            categories={categories}
             onAdd={addGoal}
             onUpdate={updateGoal}
             onDelete={deleteGoal}
@@ -389,7 +450,7 @@ function Dashboard({ user }) {
             </CardHeader>
             <div className="px-6 pb-6">
               <SpendingSummary
-                totalExpenses={totalExpenses}
+                transactions={transactions}
                 topCategory={topCategory}
                 dailyAverage={dailyAverage}
                 balance={balance}

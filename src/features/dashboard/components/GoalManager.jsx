@@ -20,26 +20,29 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { calculateGoalProgress } from "@/utils/calculations";
 
-export function GoalManager({ goals, onAdd, onUpdate, onDelete }) {
+export function GoalManager({ goals, onAdd, onUpdate, onDelete, categories }) {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [newGoal, setNewGoal] = useState({
     name: "",
     type: "saving",
     amount: "",
+    category: "",
   });
   const [editingGoal, setEditingGoal] = useState(null);
   const [editGoal, setEditGoal] = useState({
     name: "",
     type: "saving",
     amount: "",
+    category: "",
   });
 
   const handleAddGoal = async (e) => {
     e.preventDefault();
     await onAdd(newGoal);
-    setNewGoal({ name: "", type: "saving", amount: "" });
+    setNewGoal({ name: "", type: "saving", amount: "", category: "" });
     setShowAddDialog(false);
   };
 
@@ -49,6 +52,7 @@ export function GoalManager({ goals, onAdd, onUpdate, onDelete }) {
       name: goal.name || "",
       type: goal.goal_type,
       amount: goal.target_amount,
+      category: goal.category_id || "",
     });
     setShowEditDialog(true);
   };
@@ -93,7 +97,7 @@ export function GoalManager({ goals, onAdd, onUpdate, onDelete }) {
                     <Select
                       value={newGoal.type}
                       onValueChange={(value) =>
-                        setNewGoal({ ...newGoal, type: value })
+                        setNewGoal({ ...newGoal, type: value, category: "" })
                       }
                     >
                       <SelectTrigger>
@@ -105,6 +109,30 @@ export function GoalManager({ goals, onAdd, onUpdate, onDelete }) {
                       </SelectContent>
                     </Select>
                   </div>
+                  {newGoal.type === "spending" && (
+                    <div className="space-y-2">
+                      <Label>Category</Label>
+                      <Select
+                        value={newGoal.category}
+                        onValueChange={(value) =>
+                          setNewGoal({ ...newGoal, category: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories
+                            .filter((c) => c.type === "expense")
+                            .map((category) => (
+                              <SelectItem key={category.id} value={category.id}>
+                                {category.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label>Target Amount ($)</Label>
                     <Input
@@ -133,9 +161,9 @@ export function GoalManager({ goals, onAdd, onUpdate, onDelete }) {
           <ScrollArea className="h-[500px] pr-4">
             <div className="space-y-4">
               {goals.map((goal) => {
-                const progress = Math.min(
-                  (goal.current_amount / goal.target_amount) * 100,
-                  100
+                const progress = calculateGoalProgress(
+                  goal.current_amount,
+                  goal.target_amount
                 );
                 return (
                   <Card key={goal.id}>
@@ -211,7 +239,7 @@ export function GoalManager({ goals, onAdd, onUpdate, onDelete }) {
             </div>
             <div className="space-y-2">
               <Label>Goal Type</Label>
-              <Select value={editGoal.type} onValueChange={(value) => setEditGoal({ ...editGoal, type: value })}>
+              <Select value={editGoal.type} onValueChange={(value) => setEditGoal({ ...editGoal, type: value, category: "" })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -221,6 +249,30 @@ export function GoalManager({ goals, onAdd, onUpdate, onDelete }) {
                 </SelectContent>
               </Select>
             </div>
+            {editGoal.type === "spending" && (
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select
+                  value={editGoal.category}
+                  onValueChange={(value) =>
+                    setEditGoal({ ...editGoal, category: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories
+                      .filter((c) => c.type === "expense")
+                      .map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Target Amount ($)</Label>
               <Input

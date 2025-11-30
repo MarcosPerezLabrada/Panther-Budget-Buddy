@@ -5,6 +5,14 @@ import {
   calculateDailyAverage,
   calculateCategorySpending,
   getTopCategory,
+  calculateGoalProgress,
+  calculateRemainingAmount,
+  calculatePeriodSpending,
+  calculateWeeklySpending,
+  calculateMonthlySpending,
+  calculateProjectedMonthlySpending,
+  calculateSavingsProgress,
+  calculateSpendingLimitProgress,
 } from './calculations.js';
 
 describe('Expense Calculation Functions', () => {
@@ -372,3 +380,159 @@ describe('Real-world Scenarios', () => {
     expect(dailyAverage).toBeCloseTo(1.475, 2);
   });
 });
+
+describe('Goal Progress Calculations', () => {
+  describe('calculateGoalProgress', () => {
+    test('should return 0% for zero current amount', () => {
+      expect(calculateGoalProgress(0, 400)).toBe(0);
+    });
+
+    test('should calculate 50% progress correctly', () => {
+      expect(calculateGoalProgress(200, 400)).toBe(50);
+    });
+
+    test('should calculate 71% progress correctly', () => {
+      const result = calculateGoalProgress(285, 400);
+      expect(result).toBeCloseTo(71.25, 2);
+    });
+
+    test('should return 100% when goal is met', () => {
+      expect(calculateGoalProgress(400, 400)).toBe(100);
+    });
+
+    test('should cap at 100% when goal is exceeded', () => {
+      expect(calculateGoalProgress(500, 400)).toBe(100);
+    });
+
+    test('should handle decimal values', () => {
+      const result = calculateGoalProgress(100.50, 250.75);
+      expect(result).toBeCloseTo(40.08, 2);
+    });
+
+    test('should return 0 for zero target amount', () => {
+      expect(calculateGoalProgress(100, 0)).toBe(0);
+    });
+  });
+
+  describe('calculateRemainingAmount', () => {
+    test('should calculate remaining amount correctly', () => {
+      expect(calculateRemainingAmount(100, 400)).toBe(300);
+    });
+
+    test('should return 0 when goal is met', () => {
+      expect(calculateRemainingAmount(400, 400)).toBe(0);
+    });
+
+    test('should return 0 when goal is exceeded', () => {
+      expect(calculateRemainingAmount(500, 400)).toBe(0);
+    });
+
+    test('should handle decimal values', () => {
+      const result = calculateRemainingAmount(50.50, 100.99);
+      expect(result).toBeCloseTo(50.49, 2);
+    });
+
+    test('should return full target amount when current is zero', () => {
+      expect(calculateRemainingAmount(0, 500)).toBe(500);
+    });
+  });
+
+  describe('calculateSavingsProgress', () => {
+    test('should calculate balance (income - expenses) as savings progress', () => {
+      const transactions = [
+        { type: 'income', amount: '500' },
+        { type: 'income', amount: '300' },
+      ];
+      expect(calculateSavingsProgress(transactions)).toBe(800);
+    });
+
+    test('should subtract expenses from income', () => {
+      const transactions = [
+        { type: 'income', amount: '1000' },
+        { type: 'expense', amount: '200' },
+      ];
+      expect(calculateSavingsProgress(transactions)).toBe(800);
+    });
+
+    test('should return negative balance when expenses exceed income', () => {
+      const transactions = [
+        { type: 'income', amount: '100' },
+        { type: 'expense', amount: '200' },
+      ];
+      expect(calculateSavingsProgress(transactions)).toBe(-100);
+    });
+
+    test('should return 0 for no transactions', () => {
+      expect(calculateSavingsProgress([])).toBe(0);
+    });
+
+    test('should calculate positive savings correctly', () => {
+      const transactions = [
+        { type: 'income', amount: '2000' },
+        { type: 'expense', amount: '500' },
+        { type: 'expense', amount: '300' },
+      ];
+      expect(calculateSavingsProgress(transactions)).toBe(1200);
+    });
+  });
+
+  describe('calculateSpendingLimitProgress', () => {
+    test('should calculate spending for a specific category', () => {
+      const transactions = [
+        { type: 'expense', category_id: 1, amount: '50' },
+        { type: 'expense', category_id: 1, amount: '75' },
+        { type: 'expense', category_id: 2, amount: '100' },
+      ];
+      expect(calculateSpendingLimitProgress(transactions, 1)).toBe(125);
+    });
+
+    test('should return 0 for category with no spending', () => {
+      const transactions = [
+        { type: 'expense', category_id: 2, amount: '100' },
+      ];
+      expect(calculateSpendingLimitProgress(transactions, 1)).toBe(0);
+    });
+
+    test('should ignore income transactions', () => {
+      const transactions = [
+        { type: 'income', category_id: 1, amount: '500' },
+        { type: 'expense', category_id: 1, amount: '100' },
+      ];
+      expect(calculateSpendingLimitProgress(transactions, 1)).toBe(100);
+    });
+
+    test('should handle decimal amounts', () => {
+      const transactions = [
+        { type: 'expense', category_id: 1, amount: '25.50' },
+        { type: 'expense', category_id: 1, amount: '49.99' },
+      ];
+      const result = calculateSpendingLimitProgress(transactions, 1);
+      expect(result).toBeCloseTo(75.49, 2);
+    });
+  });
+
+  describe('calculateProjectedMonthlySpending', () => {
+    test('should project monthly spending from daily average', () => {
+      const transactions = [{ type: 'expense', amount: '300' }];
+      const result = calculateProjectedMonthlySpending(transactions, 30);
+      expect(result).toBe(300);
+    });
+
+    test('should handle multiple expenses', () => {
+      const transactions = [
+        { type: 'expense', amount: '10.50' },
+        { type: 'expense', amount: '25.00' },
+        { type: 'expense', amount: '8.75' },
+      ];
+      const result = calculateProjectedMonthlySpending(transactions, 30);
+      expect(result).toBeCloseTo(44.25, 2);
+    });
+
+    test('should handle custom period calculation', () => {
+      const transactions = [{ type: 'expense', amount: '700' }];
+      const result = calculateProjectedMonthlySpending(transactions, 7);
+      expect(result).toBe(3000);
+    });
+  });
+});
+
