@@ -2,6 +2,14 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  calculateTotalIncome,
+  calculateTotalExpenses,
+  calculateBalance,
+  calculateDailyAverage,
+  calculateCategorySpending,
+  getTopCategory,
+} from "@/utils/calculations";
 import { StatsCards } from "./components/StatsCards";
 import { TransactionForm } from "./components/TransactionForm";
 import { TransactionList } from "./components/TransactionList";
@@ -293,34 +301,15 @@ function Dashboard({ user }) {
     }
   };
 
-  // Calculate stats using filter and reduce
-  const totalIncome = transactions
-    .filter((t) => t.type === "income")
-    .reduce((sum, t) => sum + parseFloat(t.amount), 0);
-
-  const totalExpenses = transactions
-    .filter((t) => t.type === "expense")
-    .reduce((sum, t) => sum + parseFloat(t.amount), 0);
-
-  const balance = totalIncome - totalExpenses;
-  const dailyAverage = totalExpenses / 30;
+  // Calculate stats using utility functions
+  const totalIncome = calculateTotalIncome(transactions);
+  const totalExpenses = calculateTotalExpenses(transactions);
+  const balance = calculateBalance(transactions);
+  const dailyAverage = calculateDailyAverage(transactions, 30);
 
   // Calculate spending by category
-  const categorySpending = {};
-  categories
-    .filter((c) => c.type === "expense")
-    .forEach((category) => {
-      const total = transactions
-        .filter((t) => t.type === "expense" && t.category_id === category.id)
-        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
-      if (total > 0) {
-        categorySpending[category.name] = total;
-      }
-    });
-
-  const topCategory = Object.entries(categorySpending).sort(
-    (a, b) => b[1] - a[1]
-  )[0];
+  const categorySpending = calculateCategorySpending(transactions, categories);
+  const topCategory = getTopCategory(categorySpending);
 
   if (loading) {
     return (
